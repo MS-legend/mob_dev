@@ -6,50 +6,46 @@ const useApi = (url) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        setData(result);
-      } catch (err) {
-        // Устанавливаем сообщение об ошибке
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchData = async (fetchUrl) => {
+    if (!fetchUrl) return;
 
-    if (url) {
-      fetchData();
-    }
-  }, [url]);
-
-  const refetch = () => {
-    if (url) {
+    // 💡 DEBUG: Лог начала запроса
+    console.log(`[useApi] Начинаем GET-запрос: ${fetchUrl}`);
+    
+    try {
       setLoading(true);
       setError(null);
       
-      fetch(url)
-        .then(response => {
-          // ИСПРАВЛЕНИЕ: Добавляем проверку response.ok для refetch
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(setData)
-        .catch(err => setError(err.message)) // Обрабатываем ошибку
-        .finally(() => setLoading(false));
+      const response = await fetch(fetchUrl);
+      
+      if (!response.ok) {
+        const errorText = `HTTP error! Status: ${response.status} (${response.statusText})`;
+        // 💡 DEBUG: Лог ошибки HTTP
+        console.error(`[useApi] Ошибка HTTP: ${errorText}`);
+        throw new Error(errorText);
+      }
+      
+      const result = await response.json();
+      setData(result);
+      // 💡 DEBUG: Лог успеха
+      console.log(`[useApi] GET-запрос успешен. Получено данных: ${Array.isArray(result) ? result.length : '1'} элемент(ов).`);
+      
+    } catch (err) {
+      setError(err.message);
+      // 💡 DEBUG: Лог общей ошибки
+      console.error('[useApi] Общая ошибка запроса:', err.message);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchData(url);
+  }, [url]);
+
+  // Функция для принудительного обновления (используется кнопкой)
+  const refetch = () => {
+    fetchData(url);
   };
 
   return { data, loading, error, refetch };

@@ -15,7 +15,10 @@ import useStorage from '../hooks/useStorage';
 const { width } = Dimensions.get('window');
 
 const AnalyticsScreen = () => {
-  const { value: count } = useStorage('counter', 0);
+  // Загрузка счетчика фотографий
+  const { value: photoCount } = useStorage('photo_count', 0);
+  
+  // Анимации
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
   const [scaleAnim] = useState(new Animated.Value(0.8));
@@ -41,206 +44,175 @@ const AnalyticsScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, slideAnim, scaleAnim]);
 
   const stats = [
     {
-      title: 'Текущий счетчик',
-      value: count,
-      icon: 'trending-up',
-      color: '#007AFF',
-      description: 'Текущее значение вашего счетчика'
-    },
-    {
-      title: 'Максимальное значение',
-      value: Math.max(count, 10),
-      icon: 'trophy',
+      title: 'Всего фотографий в галерее',
+      value: photoCount,
+      icon: 'image',
       color: '#34C759',
-      description: 'Самое высокое достигнутое значение'
+      unit: 'шт.',
     },
     {
-      title: 'Всего нажатий',
-      value: count * 2 + 15,
-      icon: 'hand-right',
+      title: 'Проведено аудиозаписей',
+      value: 3, // Статическое значение для демонстрации
+      icon: 'mic',
+      color: '#5856D6',
+      unit: 'раз',
+    },
+    {
+      title: 'API-запросы (с начала сессии)',
+      value: 12, // Статическое значение для демонстрации
+      icon: 'cloud-download',
       color: '#FF9500',
-      description: 'Общее количество взаимодействий'
+      unit: 'шт.',
     },
-    {
-      title: 'Активность',
-      value: `${Math.min(count * 5, 100)}%`,
-      icon: 'pulse',
-      color: '#FF3B30',
-      description: 'Уровень вашей активности в приложении'
-    }
   ];
 
-  const StatCard = ({ stat, index }) => (
-    <Animated.View
-      style={[
-        styles.statCard,
-        {
-          opacity: fadeAnim,
-          transform: [
-            { translateY: slideAnim },
-            { scale: scaleAnim }
-          ],
-        },
-      ]}
-    >
-      <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-        <Ionicons name={stat.icon} size={24} color={stat.color} />
-      </View>
-      <Text style={styles.statValue}>{stat.value}</Text>
-      <Text style={styles.statTitle}>{stat.title}</Text>
-      <Text style={styles.statDescription}>{stat.description}</Text>
-    </Animated.View>
-  );
-
-  const ProgressBar = ({ progress, color }) => (
-    <View style={styles.progressContainer}>
-      <View style={styles.progressBackground}>
-        <Animated.View
-          style={[
-            styles.progressFill,
-            {
-              backgroundColor: color,
-              width: progress.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0%', '100%'],
-              }),
-            },
-          ]}
-        />
-      </View>
-    </View>
-  );
-
+  const renderStatItem = ({ title, value, icon, color, unit }) => {
+    // Анимированный компонент для карточки
+    return (
+      <Animated.View 
+        style={[
+          styles.statCard, 
+          { 
+            opacity: fadeAnim, 
+            transform: [{ translateY: slideAnim }, { scale: scaleAnim }]
+          }
+        ]}
+      >
+        <View style={[styles.iconCircle, { backgroundColor: color + '30' }]}>
+          <Ionicons name={icon} size={24} color={color} />
+        </View>
+        <View style={styles.statContent}>
+          <Text style={styles.statTitle}>{title}</Text>
+          <Text style={styles.statValue}>
+            {value} <Text style={styles.statUnit}>{unit}</Text>
+          </Text>
+        </View>
+      </Animated.View>
+    );
+  };
+  
+  // Установка фиксированного соотношения 9:16 (если нужно)
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Аналитика</Text>
-        <Text style={styles.headerSubtitle}>Статистика использования приложения</Text>
-      </View>
-
-      <View style={styles.statsGrid}>
-        {stats.map((stat, index) => (
-          <StatCard key={stat.title} stat={stat} index={index} />
-        ))}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Прогресс достижений</Text>
+    <View style={{ flex: 1, aspectRatio: 9 / 16, alignSelf: 'center', width: '100%' }}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
         
-        <View style={styles.achievement}>
-          <View style={styles.achievementInfo}>
-            <Ionicons name="star" size={20} color="#FFD700" />
-            <Text style={styles.achievementText}>Новичок</Text>
+        <Text style={styles.header}>Аналитика использования</Text>
+        <Text style={styles.subheader}>
+          Сводка по ключевым действиям пользователя и статистике.
+        </Text>
+
+        <View style={styles.statsGrid}>
+          {stats.map((stat, index) => (
+            <View key={index} style={styles.statItemWrapper}>
+              {renderStatItem(stat)}
+            </View>
+          ))}
+        </View>
+        
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Достижения (на основе статистики)</Text>
+          
+          <View style={styles.achievement}>
+            <View style={styles.achievementInfo}>
+              <Ionicons name="trophy-outline" size={24} color="#FFD700" />
+              <Text style={styles.achievementText}>Первый снимок</Text>
+            </View>
+            <Text style={styles.achievementProgress}>{photoCount >= 1 ? 'Получено' : '—'}</Text>
           </View>
-          <Text style={styles.achievementProgress}>100%</Text>
+
+          <View style={styles.achievement}>
+            <View style={styles.achievementInfo}>
+              <Ionicons name="star-outline" size={24} color="#FF9500" />
+              <Text style={styles.achievementText}>Галерея 10+</Text>
+            </View>
+            <Text style={styles.achievementProgress}>{photoCount}/10</Text>
+          </View>
+          
         </View>
 
-        <View style={styles.achievement}>
-          <View style={styles.achievementInfo}>
-            <Ionicons name="star" size={20} color="#FFD700" />
-            <Text style={styles.achievementText}>Активный пользователь</Text>
-          </View>
-          <Text style={styles.achievementProgress}>{Math.min(count * 2, 100)}%</Text>
-        </View>
-
-        <View style={styles.achievement}>
-          <View style={styles.achievementInfo}>
-            <Ionicons name="star" size={20} color="#FFD700" />
-            <Text style={styles.achievementText}>Эксперт</Text>
-          </View>
-          <Text style={styles.achievementProgress}>{Math.min(count, 100)}%</Text>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Рекомендации</Text>
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb" size={24} color="#FF9500" />
-          <View style={styles.tipContent}>
-            <Text style={styles.tipTitle}>Совет дня</Text>
-            <Text style={styles.tipText}>
-              Попробуйте использовать все функции приложения для получения полного опыта.
-              Каждое взаимодействие улучшает вашу статистику!
-            </Text>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#f5f5f5',
+  },
+  contentContainer: {
+    padding: 16,
+    paddingBottom: 50,
   },
   header: {
-    backgroundColor: '#007AFF',
-    padding: 20,
-    paddingTop: 50,
-  },
-  headerTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 5,
+    fontWeight: '900',
+    color: '#1c1c1e',
+    textAlign: 'center',
+    marginTop: 10,
   },
-  headerSubtitle: {
+  subheader: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#8e8e93',
+    textAlign: 'center',
+    marginBottom: 20,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    padding: 10,
     justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  statItemWrapper: {
+    width: '100%',
+    marginBottom: 10,
   },
   statCard: {
-    width: (width - 40) / 2 - 5,
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 15,
-    marginBottom: 10,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowRadius: 8,
     elevation: 5,
-    alignItems: 'center',
   },
-  iconContainer: {
+  iconCircle: {
     width: 50,
     height: 50,
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginRight: 15,
+  },
+  statContent: {
+    flex: 1,
+  },
+  statTitle: {
+    fontSize: 14,
+    color: '#8e8e93',
+    fontWeight: '500',
   },
   statValue: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1c1c1e',
-    marginBottom: 5,
+    marginTop: 2,
   },
-  statTitle: {
+  statUnit: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1c1c1e',
-    marginBottom: 5,
-    textAlign: 'center',
-  },
-  statDescription: {
-    fontSize: 12,
+    fontWeight: 'normal',
     color: '#8e8e93',
-    textAlign: 'center',
   },
   section: {
     backgroundColor: 'white',
-    margin: 16,
+    margin: 0, // Убрал внешний отступ, так как он есть в contentContainer
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
@@ -276,42 +248,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#007AFF',
-  },
-  progressContainer: {
-    height: 6,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 3,
-    overflow: 'hidden',
-    marginTop: 5,
-  },
-  progressBackground: {
-    flex: 1,
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  tipCard: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF9F0',
-    borderRadius: 12,
-    padding: 15,
-    alignItems: 'flex-start',
-  },
-  tipContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#E65100',
-    marginBottom: 5,
-  },
-  tipText: {
-    fontSize: 14,
-    color: '#8D6E63',
-    lineHeight: 20,
   },
 });
 

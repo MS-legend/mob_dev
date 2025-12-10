@@ -1,4 +1,5 @@
 // App.js - главный файл с навигацией
+import 'react-native-gesture-handler'; // 💡 ВАЖНО: Должен быть первым
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';

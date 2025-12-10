@@ -2,29 +2,13 @@
 const API_BASE = 'https://jsonplaceholder.typicode.com';
 
 export const apiService = {
-  async getUsers() {
-    try {
-      const response = await fetch(`${API_BASE}/users`);
-      if (!response.ok) throw new Error('Network response was not ok');
-      return await response.json();
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
-  },
-
-  async getPosts() {
-    try {
-      const response = await fetch(`${API_BASE}/posts`);
-      if (!response.ok) throw new Error('Network response was not ok');
-      return await response.json();
-    } catch (error) {
-      console.error('API Error:', error);
-      throw error;
-    }
-  },
+  // Функции getUsers и getPosts опущены для краткости, поскольку не используются
+  // ...
 
   async createPost(postData) {
+    // 💡 DEBUG: Лог начала POST-запроса
+    console.log(`[apiService] Начинаем POST-запрос на ${API_BASE}/posts с данными:`, postData);
+
     try {
       const response = await fetch(`${API_BASE}/posts`, {
         method: 'POST',
@@ -33,10 +17,22 @@ export const apiService = {
         },
         body: JSON.stringify(postData),
       });
-      if (!response.ok) throw new Error('Network response was not ok');
-      return await response.json();
+      
+      if (!response.ok) {
+        const errorText = `Network response was not ok. Status: ${response.status} (${response.statusText})`;
+        // 💡 DEBUG: Лог ошибки HTTP
+        console.error(`[apiService] Ошибка HTTP POST: ${errorText}`);
+        throw new Error(errorText);
+      }
+      
+      const result = await response.json();
+      // 💡 DEBUG: Лог успеха POST
+      console.log(`[apiService] POST-запрос успешен. Полученный ID: ${result.id}`);
+      return result;
+      
     } catch (error) {
-      console.error('API Error:', error);
+      // 💡 DEBUG: Лог общей ошибки
+      console.error('[apiService] Общая ошибка POST-запроса:', error.message);
       throw error;
     }
   }
