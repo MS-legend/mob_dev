@@ -1,23 +1,23 @@
 // src/screens/HomeScreen.js - главный экран приложения
-import React from 'react'; // Удален useState, так как локальные данные убраны
+import React from 'react'; 
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   StyleSheet, 
-  ScrollView,
-  // ActivityIndicator, Alert, Image - удалены, т.к. API-секция убрана
 } from 'react-native';
-// Удалены неиспользуемые импорты: useStorage, useApi, apiService
+// 🚀 Восстановлен импорт useStorage для реактивной темы
+import useStorage from '../hooks/useStorage';
 import { Ionicons } from '@expo/vector-icons';
 
-// API_URL удален, так как не используется
-
 const HomeScreen = ({ navigation }) => {
-  // УДАЛЕНЫ: useStorage, useApi, localData, postLoading, все функции API и локальных данных
-  
+  // 🚀 Читаем настройки для определения темы
+  // Теперь этот хук гарантирует, что компонент перерисуется при изменении настроек.
+  const { value: appSettings } = useStorage('appSettings', { darkMode: false });
+  const isDarkMode = appSettings?.darkMode ?? false;
+  const themeStyles = getStyles(isDarkMode);
+
   // --- Компонент навигационной кнопки ---
-  // Изменен для более крупного и заметного стиля
   const NavigationButton = ({ screen, title, icon, color }) => (
     <TouchableOpacity
       style={[styles.navButton, { backgroundColor: color }]}
@@ -29,16 +29,16 @@ const HomeScreen = ({ navigation }) => {
   );
 
   return (
-    // Используем View вместо ScrollView, т.к. контента мало
-    <View style={styles.container}> 
+    // Применяем динамические стили
+    <View style={themeStyles.container}> 
       
       <View style={styles.header}>
-        <Text style={styles.mainTitle}>Главная Панель</Text>
-        <Text style={styles.subtitle}>Выберите раздел для продолжения работы.</Text>
+        <Text style={themeStyles.mainTitle}>Главная Панель</Text>
+        <Text style={themeStyles.subtitle}>Выберите раздел для продолжения работы.</Text>
       </View>
 
       {/* Секция Навигация (теперь главный элемент) */}
-      <View style={styles.navigationSection}>
+      <View style={themeStyles.navigationSection}>
         
         <View style={styles.navRow}>
           <NavigationButton 
@@ -75,36 +75,46 @@ const HomeScreen = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+// 🚀 Функция для динамических стилей
+const getStyles = (isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0ffef', // Сделаем фон чуть светлее и свежее
+    // Динамический фон
+    backgroundColor: isDarkMode ? '#121212' : '#f0ffef', 
     padding: 20,
-    justifyContent: 'center', // Центрируем контент
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
+    justifyContent: 'center', 
   },
   mainTitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1c1c1e',
+    // Динамический цвет текста
+    color: isDarkMode ? '#fff' : '#1c1c1e',
     marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    color: '#6c757d',
+    // Динамический цвет подзаголовка
+    color: isDarkMode ? '#aaa' : '#6c757d',
   },
   navigationSection: {
-    backgroundColor: 'white',
+    // Динамический фон секции
+    backgroundColor: isDarkMode ? '#1e1e1e' : 'white',
     padding: 20,
     borderRadius: 15,
-    shadowColor: '#000',
+    shadowColor: isDarkMode ? '#000' : '#000',
+    // Корректировка тени для темной темы
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDarkMode ? 0.4 : 0.1, 
     shadowRadius: 10,
     elevation: 5,
+  },
+});
+
+// 🚀 Статические стили (не зависящие от темы)
+const styles = StyleSheet.create({
+  header: {
+    marginBottom: 40,
+    alignItems: 'center',
   },
   navRow: {
     flexDirection: 'row',
@@ -112,14 +122,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   navButton: {
-    // Увеличены размеры и внутренние отступы для лучшего дизайна
     paddingHorizontal: 15,
     paddingVertical: 25, 
     borderRadius: 12,
     alignItems: 'center',
     flex: 1,
     marginHorizontal: 8,
-    minHeight: 120, // Фиксированная высота для единообразия
+    minHeight: 120, 
     justifyContent: 'center',
   },
   navButtonText: {
@@ -128,7 +137,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
-  // Все остальные стили (counter, apiList, localList и т.д.) удалены
 });
 
 export default HomeScreen;

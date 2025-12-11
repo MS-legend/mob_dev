@@ -8,30 +8,33 @@ import {
   ScrollView,
   Image,
   Alert,
-  // 💡 Импортируем Platform, чтобы лучше отлаживать
   Platform 
 } from 'react-native';
 import { Audio } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
+import useStorage from '../hooks/useStorage'; // 🚀 Импорт для чтения темы
 
 const MediaScreen = () => {
+  // 🚀 Читаем настройки для определения темы
+  const { value: appSettings } = useStorage('appSettings', { darkMode: false });
+  const isDarkMode = appSettings?.darkMode ?? false;
+
   const [sound, setSound] = useState();
   const [recording, setRecording] = useState();
   const [recordedURI, setRecordedURI] = useState();
   const [image, setImage] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Ссылка на аудио
-  const soundRef = useRef();
+  const soundRef = useRef(null);
   
-  // 🚀 АУДИО: Использование локального файла WAV 
-  // Убедитесь, что 'mixkit-modern-technology-select-3124.wav' находится в корневой папке 'assets/'
   const LOCAL_SOUND_URI = require('../../assets/mixkit-modern-technology-select-3124.wav');
 
-  // Общий эффект для воспроизведения короткого звука
-  const playSoundEffect = async (uri) => {
+  // Общий эффект для воспроизведения короткого звука (для обратной связи)
+  const playSoundEffect = async (uri) => { 
     try {
-        const { sound } = await Audio.Sound.createAsync(uri, { shouldPlay: true });
+        // Предполагаем, что uri может быть объектом { uri: string } или require(local_path)
+        const source = typeof uri === 'string' ? { uri } : uri;
+        const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
         
         sound.setOnPlaybackStatusUpdate((status) => {
             if (status.didJustFinish) {
@@ -43,198 +46,142 @@ const MediaScreen = () => {
     }
   };
 
-
-  // Воспроизведение тестового аудио
+  // 1. Воспроизведение тестового звука (LOCAL_SOUND_URI)
   const playSound = async () => {
+    // Останавливаем и выгружаем предыдущий звук, если есть
     if (soundRef.current) {
         try {
             await soundRef.current.stopAsync();
             await soundRef.current.unloadAsync();
         } catch (e) {
-            console.warn('Ошибка выгрузки предыдущего звука:', e);
+            console.log('Error stopping sound:', e);
         }
     }
     
     try {
-      // Используем локальный источник для звука
-      const { sound } = await Audio.Sound.createAsync(LOCAL_SOUND_URI);
-      soundRef.current = sound;
-      await sound.playAsync();
-      setIsPlaying(true);
-      
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.didJustFinish) {
-          setIsPlaying(false);
-          sound.unloadAsync();
-          soundRef.current = null;
-        }
-      });
-    } catch (error) {
-      console.error('Ошибка воспроизведения аудио:', error);
-      Alert.alert('Ошибка', 'Не удалось воспроизвести тестовый аудиофайл');
-      setIsPlaying(false);
-      soundRef.current = null;
-    }
-  };
-
-  // Остановка воспроизведения (дополнительная функция, может быть полезна)
-  const stopSound = async () => {
-    if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-      setIsPlaying(false);
-    }
-  };
-
-  // Запись аудио
-  const startRecording = async () => {
-    try {
-      if (soundRef.current) {
-        await stopSound(); // Остановка любого текущего звука перед записью
-      }
-      
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentModeIOS: true,
-        android: {
-            allowsRecording: true,
-            playThroughEarpieceAndroid: false,
-            staysActiveInBackground: false,
-            shouldDuckAndroid: false, 
-            interruptionModeAndroid: 1, 
-        },
-        interruptionModeIOS: 2,
-      });
-      
-      const { recording } = await Audio.Recording.createAsync(
-         Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecording(recording);
-    } catch (err) {
-      console.error('Ошибка старта записи:', err);
-      Alert.alert('Ошибка', 'Не удалось начать запись');
-    }
-  };
-
-  // Остановка записи
-  const stopRecording = async () => {
-    try {
-      if (recording) {
-        await recording.stopAndUnloadAsync();
-        const uri = recording.getURI();
-        setRecordedURI(uri);
-        setRecording(undefined);
-        
-        // Воспроизводим звук успеха (тот же локальный файл)
-        playSoundEffect(LOCAL_SOUND_URI);
-        
-        Alert.alert('Запись завершена', `Аудио сохранено по URI: ${uri}`);
-        
-        // Устанавливаем режим воспроизведения обратно
-        await Audio.setAudioModeAsync({
-          allowsRecording: false,
-        });
-      }
-    } catch (error) {
-      console.error('Ошибка остановки записи:', error);
-      Alert.alert('Ошибка', 'Не удалось остановить запись');
-    }
-  };
-  
-  // Воспроизведение записанного аудио
-  const playRecordedSound = async () => {
-    if (recordedURI) {
-        if (soundRef.current) {
-            await stopSound(); 
-        }
-
-        try {
-            const { sound } = await Audio.Sound.createAsync({ uri: recordedURI });
-            soundRef.current = sound;
-            await sound.playAsync();
-            
-            sound.setOnPlaybackStatusUpdate((status) => {
+        setIsPlaying(true);
+        const { sound } = await Audio.Sound.createAsync(
+            LOCAL_SOUND_URI,
+            { shouldPlay: true },
+            (status) => {
                 if (status.didJustFinish) {
+                    setIsPlaying(false);
                     sound.unloadAsync();
                     soundRef.current = null;
                 }
-            });
-        } catch (error) {
-            console.error('Ошибка воспроизведения записи:', error);
-            Alert.alert('Ошибка', 'Не удалось воспроизвести записанный аудиофайл');
-            soundRef.current = null;
-        }
+            }
+        );
+        soundRef.current = sound;
+        setSound(sound);
+    } catch (e) {
+        Alert.alert('Ошибка аудио', 'Не удалось воспроизвести звук.');
+        console.error(e);
+        setIsPlaying(false);
+    }
+  };
+
+  // 2. Съемка фото / Выбор из галереи
+  const pickImage = async (fromCamera = false) => {
+    // Запрос разрешений
+    let permissionResult;
+    if (fromCamera) {
+      permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     } else {
-        Alert.alert('Нет записи', 'Сначала сделайте аудиозапись.');
+      permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    }
+
+    if (permissionResult.granted === false) {
+      Alert.alert('Требуется разрешение', `Разрешение на доступ к ${fromCamera ? 'камере' : 'галерее'} отклонено.`);
+      return;
+    }
+
+    // Параметры выбора
+    let pickerResult = await (fromCamera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync)({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+
+    if (!pickerResult.canceled) {
+      const imageUri = pickerResult.assets && pickerResult.assets.length > 0 ? pickerResult.assets[0].uri : null;
+      if (imageUri) {
+          setImage(imageUri);
+          Alert.alert('Успех', `Изображение ${fromCamera ? 'снято' : 'выбрано'}!`);
+      }
     }
   };
   
-  // Выбор изображения
-  const pickImage = async (fromCamera = false) => {
+  // 3. Запись звука
+  const startRecording = async () => {
     try {
-      let result;
-      
-      if (fromCamera) {
-        await ImagePicker.requestCameraPermissionsAsync();
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 1,
-        });
-      } else {
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [4, 3],
-          quality: 1,
-        });
+      if (Platform.OS !== 'web') {
+          const permission = await Audio.requestPermissionsAsync();
+          if (permission.status !== "granted") {
+              Alert.alert('Требуется разрешение', 'Разрешение на запись аудио отклонено.');
+              return;
+          }
       }
 
-      // 🚀 ФИНАЛЬНОЕ ИСПРАВЛЕНИЕ 3: Самое надежное получение URI
-      if (!result.canceled) {
-        // Приоритет: 1. assets[0].uri (для новых Expo/Android), 2. result.uri (для старых Expo/Web)
-        const imageUri = (result.assets && result.assets.length > 0 
-                         ? result.assets[0].uri 
-                         : result.uri); 
-        
-        // 💡 ОЧЕНЬ ВАЖНО: Выведите это в консоль (Terminal или DevTools)
-        console.log(`ImagePicker: Выбранный URI на платформе ${Platform.OS}:`, imageUri);
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
 
-        if (imageUri) {
-            setImage(imageUri);
-        } else {
-             Alert.alert('Ошибка', 'Не удалось получить URI изображения. Выберите другой файл.');
-             console.error("ImagePicker: Не удалось извлечь imageUri из результата:", result);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Ошибка', `Не удалось выбрать изображение: ${error.message}`);
-      console.error("ImagePicker Error:", error);
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(recording);
+      setRecordedURI(null);
+      Alert.alert('Запись', 'Начата запись...');
+
+    } catch (err) {
+      console.error('Failed to start recording', err);
+      Alert.alert('Ошибка', 'Не удалось начать запись аудио.');
     }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      
-      {/* Описание модуля */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Цель модуля "Мультимедиа"</Text>
-        <Text style={styles.description}>
-          Этот модуль демонстрирует взаимодействие приложения с нативными функциями устройства. Используйте его для проверки доступа к камере, галерее и микрофону, а также корректной работы Expo API.
-        </Text>
-        <Text style={styles.list}>
-          • Проверка ImagePicker: Сделайте фото или выберите его из галереи.{'\n'}
-          • Проверка Audio API: Запишите голосовое сообщение (со звуковым оповещением о завершении) и воспроизведите тестовый сигнал.
-        </Text>
-      </View>
+  // 4. Остановка записи
+  const stopRecording = async () => {
+    setRecording(undefined);
+    await recording.stopAndUnloadAsync();
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+    });
+    const uri = recording.getURI();
+    setRecordedURI(uri);
+    Alert.alert('Запись', `Запись остановлена. URI: ${uri ? uri.substring(0, 30) + '...' : 'N/A'}`);
+    // Звуковой эффект по завершении записи
+    await playSoundEffect('https://www.soundjay.com/button/beep-07a.wav'); 
+  };
+  
+  // 5. Воспроизведение записанного звука
+  const playRecordedSound = async () => {
+    if (!recordedURI) return;
+    try {
+        const { sound } = await Audio.Sound.createAsync(
+            { uri: recordedURI },
+            { shouldPlay: true }
+        );
+        sound.setOnPlaybackStatusUpdate((status) => {
+            if (status.didJustFinish) {
+                sound.unloadAsync();
+            }
+        });
+    } catch (error) {
+        Alert.alert('Ошибка воспроизведения', 'Не удалось воспроизвести записанный звук.');
+        console.error(error);
+    }
+  };
 
+  const themeStyles = getStyles(isDarkMode);
+
+  return (
+    <ScrollView style={themeStyles.container}>
+      
       {/* Секция Изображения */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Изображения (ImagePicker)</Text>
+      <View style={themeStyles.section}>
+        <Text style={themeStyles.sectionTitle}>Изображения</Text>
         <View style={styles.buttonRow}>
           <TouchableOpacity 
             style={[styles.button, styles.photoButton]} 
@@ -254,21 +201,19 @@ const MediaScreen = () => {
       </View>
 
       {/* Секция Аудио */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Аудио (Expo-AV)</Text>
+      <View style={themeStyles.section}>
+        <Text style={themeStyles.sectionTitle}>Аудио</Text>
         
-        {/* Воспроизведение тестового звука */}
         <TouchableOpacity 
           onPress={playSound} 
-          disabled={isPlaying} 
-          style={[styles.button, styles.audioButton]}
+          disabled={isPlaying || recording} // Нельзя играть звук во время записи
+          style={[styles.button, styles.audioButton, { opacity: (isPlaying || recording) ? 0.6 : 1 }]}
         >
           <Text style={styles.buttonText}>
             {isPlaying ? 'Воспроизведение...' : 'Воспроизвести Тест. Звук'}
           </Text>
         </TouchableOpacity>
         
-        {/* Запись аудио */}
         <TouchableOpacity 
           onPress={recording ? stopRecording : startRecording} 
           style={[styles.button, recording ? styles.stopButton : styles.recordButton]}
@@ -278,7 +223,6 @@ const MediaScreen = () => {
           </Text>
         </TouchableOpacity>
         
-        {/* Воспроизведение записанного аудио */}
         {recordedURI && (
             <TouchableOpacity 
                 onPress={playRecordedSound} 
@@ -295,20 +239,21 @@ const MediaScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
+// 🚀 Функция для динамических стилей
+const getStyles = (isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: isDarkMode ? '#121212' : '#f5f5f5',
     padding: 20,
   },
   section: {
-    backgroundColor: 'white',
+    backgroundColor: isDarkMode ? '#1e1e1e' : 'white',
     padding: 15,
     borderRadius: 10,
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: isDarkMode ? '#000' : '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: isDarkMode ? 0.3 : 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -316,22 +261,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 15,
-    color: '#333',
+    color: isDarkMode ? '#eee' : '#333',
   },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 10,
-  },
-  list: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    paddingLeft: 10,
-    borderLeftWidth: 3,
-    borderLeftColor: '#007AFF',
-    paddingVertical: 5,
-  },
+});
+
+// 🚀 Статические стили
+const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

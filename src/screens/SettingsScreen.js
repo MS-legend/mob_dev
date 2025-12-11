@@ -1,5 +1,5 @@
 // SettingsScreen.js - экран настроек приложения
-import React, { useState } from 'react';
+import React from 'react'; // Удален useState, так как настройки берутся из useStorage
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import useStorage from '../hooks/useStorage'; // 🚀 Добавлен импорт useStorage для сброса данных
+import useStorage from '../hooks/useStorage';
 
 const SettingsScreen = ({ navigation }) => {
   // 🚀 Используем useStorage для демонстрации сохранения настроек
@@ -28,6 +28,10 @@ const SettingsScreen = ({ navigation }) => {
   const { clearData: clearGalleryImages } = useStorage('gallery_images', []);
   const { clearData: clearPhotoCount } = useStorage('photo_count', 0);
 
+  // 🚀 Определяем, включена ли темная тема
+  const isDarkMode = settings?.darkMode ?? false;
+  const themeStyles = getStyles(isDarkMode);
+
   const toggleSetting = (key) => {
     setSettings(prev => ({
       ...prev,
@@ -38,106 +42,154 @@ const SettingsScreen = ({ navigation }) => {
   const copyAppInfo = async () => {
     const appInfo = `Simple Counter App\nВерсия: 1.0.0\nРазработчик: Магомедсаид Гаджиагаев\nНастройки: ${JSON.stringify(settings, null, 2)}`;
     await Clipboard.setStringAsync(appInfo);
-    Alert.alert('Скопировано', 'Информация о приложении скопирована в буфер обмена');
+    Alert.alert('Скопировано', 'Информация о приложении скопирована в буфер обмена.');
   };
-
-  const resetData = () => {
+  
+  const handleResetData = () => {
     Alert.alert(
-      'Сброс данных',
-      'Вы уверены, что хотите сбросить все данные приложения (счетчик, галерея)? Это действие нельзя отменить.',
+      'Подтвердите сброс',
+      'Вы уверены, что хотите сбросить все локальные данные (счетчики, галерею)? Это действие необратимо.',
       [
-        { text: 'Отмена', style: 'cancel' },
-        { 
-          text: 'Сбросить', 
+        {
+          text: 'Отмена',
+          style: 'cancel',
+        },
+        {
+          text: 'Сбросить',
           style: 'destructive',
-          onPress: async () => {
-            // Сбрасываем все данные
-            await clearCounter();
-            await clearGalleryImages();
-            await clearPhotoCount();
-            // Сбрасываем текущие настройки на дефолтные
-            setSettings({
-                notifications: true,
-                darkMode: false,
-                autoSave: true,
-                analytics: true,
-                vibration: false
-            });
-            Alert.alert('Успех', 'Все данные приложения были сброшены');
-            // Перезагрузка экрана Home для обновления счетчика
-            navigation.navigate('Home'); 
-          }
+          onPress: () => {
+            clearCounter();
+            clearGalleryImages();
+            clearPhotoCount();
+            Alert.alert('Готово', 'Все локальные данные успешно сброшены.');
+          },
         },
       ]
     );
   };
-  
-  const settingsList = [
-    { key: 'notifications', title: 'Уведомления', description: 'Разрешить push-уведомления', icon: 'notifications', color: '#FF9500' },
-    { key: 'darkMode', title: 'Темная тема', description: 'Активировать темный режим интерфейса', icon: 'moon', color: '#5856D6' },
-    { key: 'autoSave', title: 'Автосохранение', description: 'Автоматически сохранять данные счетчика', icon: 'save', color: '#34C759' },
-    { key: 'analytics', title: 'Аналитика', description: 'Отправлять анонимные данные об использовании', icon: 'analytics', color: '#FF2D55' },
-    { key: 'vibration', title: 'Вибрация/Haptics', description: 'Включить тактильный отклик при нажатии', icon: 'ios-phone-portrait', color: '#007AFF' },
-  ];
 
-  // 🚀 FIX: Добавлена функция рендеринга элемента настроек
-  const renderSettingItem = (item) => (
-    <View key={item.key} style={styles.settingItem}>
-      <View style={[styles.settingIcon, { backgroundColor: `${item.color}20` }]}>
-        <Ionicons name={item.icon} size={24} color={item.color} />
+  const renderSettingItem = ({ key, title, description, icon, color, isSwitch = false }) => (
+    <View style={themeStyles.settingItem}>
+      <View style={[themeStyles.settingIcon, { backgroundColor: color + '30' }]}>
+        <Ionicons name={icon} size={24} color={color} />
       </View>
-      <View style={styles.settingContent}>
-        <Text style={styles.settingTitle}>{item.title}</Text>
-        <Text style={styles.settingDescription}>{item.description}</Text>
+      <View style={themeStyles.settingContent}>
+        <Text style={themeStyles.settingTitle}>{title}</Text>
+        {description && <Text style={themeStyles.settingDescription}>{description}</Text>}
       </View>
-      <Switch
-        trackColor={{ false: "#767577", true: item.color }}
-        thumbColor={settings[item.key] ? '#fff' : "#f4f3f4"}
-        ios_backgroundColor="#3e3e3e"
-        onValueChange={() => toggleSetting(item.key)}
-        value={settings[item.key]}
-      />
+      {isSwitch ? (
+        <Switch
+          onValueChange={() => toggleSetting(key)}
+          value={settings[key]}
+          trackColor={{ false: isDarkMode ? '#333' : '#767577', true: color }}
+          thumbColor={settings[key] ? 'white' : (isDarkMode ? '#ddd' : '#f4f3f4')}
+        />
+      ) : (
+        <Ionicons name="chevron-forward" size={24} color={isDarkMode ? '#666' : '#c7c7cc'} />
+      )}
     </View>
   );
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Основные настройки</Text>
+    <ScrollView style={themeStyles.container}>
+      
+      {/* 1. Настройки интерфейса */}
+      <View style={themeStyles.sectionHeader}>
+        <Text style={themeStyles.sectionTitle}>Интерфейс и Тема</Text>
       </View>
-
-      <View style={styles.settingsList}>
-        {/* Отображаем элементы списка, используя добавленную функцию */}
-        {settingsList.map(renderSettingItem)}
+      <View style={themeStyles.settingsList}>
+        {renderSettingItem({
+          key: 'darkMode',
+          title: 'Темная тема',
+          description: 'Применить темное оформление ко всему приложению',
+          icon: 'moon-outline',
+          color: '#007AFF',
+          isSwitch: true,
+        })}
       </View>
       
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Действия</Text>
+      {/* 2. Настройки функционала */}
+      <View style={themeStyles.sectionHeader}>
+        <Text style={themeStyles.sectionTitle}>Функционал</Text>
       </View>
-
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={[styles.actionButton, {borderColor: '#007AFF'}]} onPress={copyAppInfo}>
-          <Ionicons name="information-circle-outline" size={20} color="#007AFF" />
-          <Text style={[styles.actionButtonText, {color: '#007AFF'}]}>Инфо о Приложении</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.actionButton, {borderColor: '#FF3B30'}]} onPress={resetData}>
-          <Ionicons name="trash-outline" size={20} color="#FF3B30" />
-          <Text style={[styles.actionButtonText, {color: '#FF3B30'}]}>Сбросить Данные</Text>
-        </TouchableOpacity>
+      <View style={themeStyles.settingsList}>
+        {renderSettingItem({
+          key: 'notifications',
+          title: 'Уведомления',
+          description: 'Получать оповещения о важных событиях',
+          icon: 'notifications-outline',
+          color: '#FF9500',
+          isSwitch: true,
+        })}
+        {renderSettingItem({
+          key: 'autoSave',
+          title: 'Автосохранение',
+          description: 'Автоматическое сохранение изменений (счетчик, данные)',
+          icon: 'save-outline',
+          color: '#34C759',
+          isSwitch: true,
+        })}
+        {renderSettingItem({
+          key: 'analytics',
+          title: 'Сбор аналитики',
+          description: 'Отправка анонимной статистики использования',
+          icon: 'stats-chart-outline',
+          color: '#5856D6',
+          isSwitch: true,
+        })}
+        {renderSettingItem({
+          key: 'vibration',
+          title: 'Вибрация и тактильная отдача',
+          description: 'Вибрационный отклик на нажатия',
+          icon: 'hardware-chip-outline',
+          color: '#FF3B30',
+          isSwitch: true,
+        })}
       </View>
       
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Simple Counter App v1.0.0</Text>
+      {/* 3. Действия */}
+      <View style={themeStyles.sectionHeader}>
+        <Text style={themeStyles.sectionTitle}>Данные и Информация</Text>
+      </View>
+      <View style={themeStyles.settingsList}>
+        
+        {/* Кнопка сброса */}
+        <TouchableOpacity onPress={handleResetData}>
+          <View style={[themeStyles.settingItem, { borderBottomColor: 'transparent' }]}>
+            <View style={[themeStyles.settingIcon, { backgroundColor: '#FF3B3030' }]}>
+              <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+            </View>
+            <View style={themeStyles.settingContent}>
+              <Text style={[themeStyles.settingTitle, { color: '#FF3B30' }]}>Сбросить все данные</Text>
+              <Text style={themeStyles.settingDescription}>Удалить все счетчики и изображения</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        
+        {/* Кнопка "О приложении" */}
+        <TouchableOpacity onPress={copyAppInfo}>
+          <View style={[themeStyles.settingItem, { borderBottomWidth: 0 }]}>
+            <View style={[themeStyles.settingIcon, { backgroundColor: '#007AFF30' }]}>
+              <Ionicons name="information-circle-outline" size={24} color="#007AFF" />
+            </View>
+            <View style={themeStyles.settingContent}>
+              <Text style={themeStyles.settingTitle}>О приложении</Text>
+              <Text style={themeStyles.settingDescription}>Версия, разработчик и лицензии</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+        
       </View>
 
     </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
+// 🚀 Функция для динамических стилей
+const getStyles = (isDarkMode) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: isDarkMode ? '#000' : '#f5f5f5',
   },
   sectionHeader: {
     paddingHorizontal: 20,
@@ -147,21 +199,21 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#6c757d',
+    color: isDarkMode ? '#999' : '#6c757d',
     textTransform: 'uppercase',
   },
   settingsList: {
-    backgroundColor: 'white',
+    backgroundColor: isDarkMode ? '#1c1c1e' : 'white',
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: isDarkMode ? '#333' : '#e0e0e0',
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: isDarkMode ? '#333' : '#f0f0f0',
   },
   settingIcon: {
     width: 40,
@@ -177,41 +229,30 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1c1c1e',
+    color: isDarkMode ? '#fff' : '#1c1c1e',
     marginBottom: 2,
   },
   settingDescription: {
     fontSize: 14,
-    color: '#8e8e93',
+    color: isDarkMode ? '#999' : '#8e8e93',
   },
   actionsRow: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 40,
   },
   actionButton: {
-    flex: 1,
-    flexDirection: 'row',
+    padding: 15,
+    borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: 'white',
-    gap: 8,
-    borderWidth: 1,
+    marginTop: 10,
+    backgroundColor: '#007AFF',
   },
   actionButtonText: {
-    fontSize: 14,
+    color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
-  footer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: '#8e8e93',
-  }
 });
 
 export default SettingsScreen;
